@@ -31,17 +31,18 @@ class Storage_Locker_Redis extends Storage_Locker {
 	 */
 	protected function registerLock($alias, $expireSeconds) {
 		$lockId = $this->generateLockId();
-		$result = $this->redis->setnx($this->getKey($alias), $lockId);
+		$key = $this->getKey($alias);
+		$result = $this->redis->setnx($key, $lockId);
 		if($result === false) {
 			throw new Storage_Locker_AlreadyLocked('Lock "' . $alias . '" is already active');
 		}
-		$this->redis->setTimeout($this->getKey($alias), $expireSeconds);
+		$this->redis->setTimeout($key, $expireSeconds);
 		return new Storage_Locker_Lock($this, $alias, $lockId, $expireSeconds);
 	}
 
 	public function unlock(Storage_Locker_Lock $lock) {
 		if($this->redis->get($this->getKey($lock->getAlias())) == $lock->getId()) {
-			// TODO: there is 0.0000001% chance that it will unlock another transaction, try to find some better way
+			// TODO: there is 0.0000001% chance that it will unlock another transaction, rewrite it using WATCH http://redis.io/topics/transactions
 			$this->redis->delete($this->getKey($lock->getAlias()));
 		}
 	}
